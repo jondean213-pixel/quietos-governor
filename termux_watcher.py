@@ -59,6 +59,38 @@ def answer_ack(notification_id: str, verb: str):
                    check=False)
 
 
+def defang_stale():
+    """Kill tappable cards left over from dead runs (zombie cards).
+
+    Any outbox file present at watcher start belongs to a governor
+    process that no longer exists. Its buttons still work, but the
+    replies land as channel_reply_unknown — on 2026-10-08 a card from
+    the first-ever test kept eating Jon's (fast, correct) taps across
+    three runs. Replace each tappable card with a dead one — same id,
+    no buttons — and remove the file. FYI cards (no buttons) pass.
+    """
+    os.makedirs(OUTBOX, exist_ok=True)
+    for name in sorted(os.listdir(OUTBOX)):
+        if not name.endswith(".json"):
+            continue
+        path = os.path.join(OUTBOX, name)
+        try:
+            with open(path) as f:
+                note = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            continue
+        if note.get("actions"):
+            subprocess.run(
+                ["termux-notification", "--id",
+                 note.get("id", name[:-5]),
+                 "--title", "QuietOS — dead card",
+                 "--content",
+                 "That request is over (earlier run). Swipe me away."],
+                check=False)
+            os.remove(path)
+            print(f"watcher: defanged stale card {note.get('id', name)}")
+
+
 def main():
     if len(sys.argv) == 4 and sys.argv[1] == "--reply":
         write_reply(sys.argv[2], sys.argv[3])
@@ -69,6 +101,7 @@ def main():
         return
     os.makedirs(OUTBOX, exist_ok=True)
     os.makedirs(INBOX, exist_ok=True)
+    defang_stale()
     seen = set()
     print("watcher up — polling", OUTBOX)
     while True:
