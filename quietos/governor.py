@@ -47,7 +47,29 @@ class Governor:
         self.jon_notifications: list = []  # (kind, payload) — phone delivers these
 
     # -- the gate ------------------------------------------------------
+    def _targets_audit_trail(self, action: Action) -> bool:
+        """Delete of the audit log — or of ANY folder containing it.
+
+        classify() blocks targets naming 'audit'; this closes the walk-
+        around: deleting the audit's parent directory destroys the
+        trail just as dead without ever naming it. That's tampering.
+        """
+        import os
+        if action.kind != "delete" or not action.target:
+            return False
+        audit = os.path.normpath(os.path.expanduser(self.audit.path))
+        target = os.path.normpath(os.path.expanduser(action.target))
+        return audit == target or audit.startswith(target.rstrip(os.sep) + os.sep)
+
     def propose(self, action: Action) -> Decision:
+        if self._targets_audit_trail(action):
+            d = Decision("blocked", Tier.BLOCK,
+                         "tier 3: deleting the audit trail or its home "
+                         "is tampering", flags=["audit_path_delete_attempt"])
+            self._log(action, d)
+            self.jon_notifications.append(
+                ("blocked", {"detail": action.detail, "flags": d.flags}))
+            return d
         tier, flags = classify(action)
 
         # 1. paused brains propose nothing
@@ -95,16 +117,19 @@ class Governor:
                                  approval=dead, flags=flags + ["expiry_dodge"])
                     self._log(action, d, approval_id=dead.id)
                     return d
+            self._flush_batch()
             ap = self.approvals.hold(action)
-            batch, ids = self.batcher.add(ap.id)
-            if batch:
+            mode, ids = self.batcher.add(ap.id)
+            batched = mode != "single"
+            if mode == "batch":
                 self.jon_notifications.append(("approval_batch", {"ids": ids, "count": len(ids)}))
-            else:
+            elif mode == "single":
                 self.jon_notifications.append(("approval_needed",
                                                {"id": ap.id, "detail": action.detail,
                                                 "flags": flags}))
+            # "folded": silent — surfaces in the one window summary.
             d = Decision("held", tier, f"tier 2: held for Jon (approval {ap.id})",
-                         approval=ap, flags=flags, batched=batch)
+                         approval=ap, flags=flags, batched=batched)
             self._log(action, d, approval_id=ap.id)
             return d
 
@@ -153,7 +178,16 @@ class Governor:
         self.limiter.unpause(brain)
         self.audit.append("brain_unpaused", brain=brain, by="jon")
 
+    def _flush_batch(self):
+        """Release folded Tier-2 ids as one summary once their window
+        closes, so Jon sees every ask — batched, never drip-fed."""
+        ids = self.batcher.flush_expired()
+        if ids:
+            self.jon_notifications.append(
+                ("approval_batch", {"ids": ids, "count": len(ids)}))
+
     def sweep(self):
         for ap in self.approvals.sweep_expired():
             self.audit.append("approval_decision", approval_id=ap.id,
                               decision="expired", by="system")
+        self._flush_batch()
