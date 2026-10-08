@@ -83,6 +83,13 @@ class JonChannel:
             return Notification(kind, "QuietOS paused a brain",
                                 f"{payload['brain']}: {payload['reason']}",
                                 actions=["unpause"], brain=payload["brain"])
+        if kind == "report":
+            # Jon's sound-mind standard (2026-10-08): a result report
+            # states what was done and how it verified — never a
+            # bare "got it". Body is built from the audit, not vibes.
+            return Notification(kind,
+                                payload.get("title", "QuietOS report"),
+                                payload.get("body", ""))
         return Notification(kind, f"QuietOS: {kind}", str(payload))
 
     @staticmethod

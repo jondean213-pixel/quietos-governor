@@ -45,9 +45,27 @@ def post(n: dict, seen: set):
     seen.add(n["id"])
 
 
+def answer_ack(notification_id: str, verb: str):
+    """Replace the answered card with a confirmation (same --id).
+
+    Jon's sound-mind standard (2026-10-08): he needs to know the tap
+    went back AND what QuietOS did about it. This is the first half
+    (answer received); the report card follows once the action ran.
+    """
+    subprocess.run(["termux-notification", "--id", notification_id,
+                    "--title", "QuietOS",
+                    "--content", f"Answer sent: {verb.capitalize()} — "
+                                 "QuietOS will report what happened."],
+                   check=False)
+
+
 def main():
     if len(sys.argv) == 4 and sys.argv[1] == "--reply":
         write_reply(sys.argv[2], sys.argv[3])
+        try:
+            answer_ack(sys.argv[2], sys.argv[3])
+        except Exception:
+            pass  # the reply file is the record; ack is best-effort
         return
     os.makedirs(OUTBOX, exist_ok=True)
     os.makedirs(INBOX, exist_ok=True)

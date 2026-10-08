@@ -126,6 +126,16 @@ class Governor:
             **extra)
 
     # -- Jon's approval channel (the ONLY authority that counts) --------
+    def report_to_jon(self, title: str, body: str):
+        """Queue a result report for Jon's phone.
+
+        Evidence, not acknowledgment: the caller builds `body` from the
+        audit (what was done, how it verified). Jon's standard
+        (2026-10-08): "I need to know if it was fixed not just a got it
+        and what it did to fix it."
+        """
+        self.jon_notifications.append(("report", {"title": title, "body": body}))
+
     def jon_approve(self, approval_id: str) -> Approval:
         ap = self.approvals.approve(approval_id, "jon")
         self.audit.append("approval_decision", approval_id=approval_id,

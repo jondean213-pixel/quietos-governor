@@ -64,6 +64,24 @@ def main():
     ok, detail = gov.audit.verify()
     print("audit:", "OK" if ok else "BROKEN", f"({detail})", flush=True)
 
+    # Jon's sound-mind standard: close the loop with a report card that
+    # says what actually happened — built from the audit, not a bare ack.
+    if decision.approval and decision.approval.status in ("approved", "denied"):
+        gov.report_to_jon(
+            "QuietOS report — test complete",
+            f"You answered: {decision.approval.status}.\n"
+            "What happened: nothing was deleted — this was a test, no "
+            "files were touched.\n"
+            f"Audit: {'OK' if ok else 'BROKEN'} ({detail}).")
+    else:
+        gov.report_to_jon(
+            "QuietOS report — no answer",
+            "No tap arrived in time, so the test request died untouched. "
+            "Nothing was changed.\n"
+            f"Audit: {'OK' if ok else 'BROKEN'} ({detail}).")
+    pump.pump_out()
+    print("Report card sent — check your shade.", flush=True)
+
 
 if __name__ == "__main__":
     main()
