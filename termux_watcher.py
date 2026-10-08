@@ -40,7 +40,7 @@ def post(n: dict, seen: set):
     for i, verb in enumerate(n.get("actions", [])[:3], start=1):
         label = verb.capitalize()
         cmd += [f"--button{i}", label,
-                f"--button{i}-onclick", reply_cmd(n["id"], verb)]
+                f"--button{i}-action", reply_cmd(n["id"], verb)]
     subprocess.run(cmd, check=False)
     seen.add(n["id"])
 
