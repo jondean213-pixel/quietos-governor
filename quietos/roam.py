@@ -100,6 +100,12 @@ class RoamController:
         if obs.fault is None:
             return None
         first = self._pending.get(obs.fault)
+        if first is not None and \
+                self.clock() - first.observed_at > STALE_STATE_SECONDS:
+            # The first flag is a stale rumor: a confirmation built on
+            # it would bless an hours-old reading. The new reading
+            # becomes the first flag and the count starts over.
+            first = None
         if first is None or first.sensor == obs.sensor:
             self._pending[obs.fault] = obs
             self.gov.audit.append("roam_flag_unconfirmed", fault=obs.fault,

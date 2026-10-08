@@ -91,6 +91,27 @@ def defang_stale():
             print(f"watcher: defanged stale card {note.get('id', name)}")
 
 
+def process_file(name, seen):
+    """Post one outbox file. A poison file (malformed JSON, bad shape)
+    is quarantined to outbox/dead/ instead of being retried every 5s
+    forever — one unreadable file must never starve the files behind
+    it or kill the loop."""
+    path = os.path.join(OUTBOX, name)
+    if name[:-5] in seen:
+        return
+    try:
+        with open(path) as f:
+            post(json.load(f), seen)
+    except Exception:
+        dead = os.path.join(OUTBOX, "dead")
+        os.makedirs(dead, exist_ok=True)
+        try:
+            os.replace(path, os.path.join(dead, name))
+        except OSError:
+            pass
+        print(f"watcher: quarantined bad outbox file {name}", flush=True)
+
+
 def main():
     if len(sys.argv) == 4 and sys.argv[1] == "--reply":
         write_reply(sys.argv[2], sys.argv[3])
@@ -107,13 +128,8 @@ def main():
     while True:
         try:
             for name in sorted(os.listdir(OUTBOX)):
-                if not name.endswith(".json"):
-                    continue
-                nid = name[:-5]
-                if nid in seen:
-                    continue
-                with open(os.path.join(OUTBOX, name)) as f:
-                    post(json.load(f), seen)
+                if name.endswith(".json"):
+                    process_file(name, seen)
         except Exception as e:  # keep roaming; a bad file shouldn't kill us
             print("watcher:", e, file=sys.stderr)
         time.sleep(5)

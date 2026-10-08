@@ -180,11 +180,25 @@ class Governor:
 
     def _flush_batch(self):
         """Release folded Tier-2 ids as one summary once their window
-        closes, so Jon sees every ask — batched, never drip-fed."""
+        closes, so Jon sees every ask — batched, never drip-fed.
+
+        Only still-held ids are named: an ask Jon already decided one
+        by one must not come back at him in the summary as if it were
+        still his to answer. If every folded id is already decided,
+        nothing is sent and the dropped ids are audited instead."""
         ids = self.batcher.flush_expired()
-        if ids:
+        if not ids:
+            return
+        live = [aid for aid in ids
+                if (ap := self.approvals.lookup(aid)) is not None
+                and ap.status == "held"]
+        dropped = [aid for aid in ids if aid not in live]
+        if dropped:
+            self.audit.append("approval_batch_filtered",
+                              flushed=len(ids), dropped=dropped)
+        if live:
             self.jon_notifications.append(
-                ("approval_batch", {"ids": ids, "count": len(ids)}))
+                ("approval_batch", {"ids": live, "count": len(live)}))
 
     def sweep(self):
         for ap in self.approvals.sweep_expired():

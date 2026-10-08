@@ -96,12 +96,17 @@ class EscalationBatcher:
         return "single", [approval_id]
 
     def flush_expired(self) -> list:
-        """Folded ids, released once the latched window has closed."""
-        if self._latched and \
-                self.clock() - self._window_start > ESCALATION_BATCH_WINDOW:
-            ids = list(self._pending)
-            self._unlatch()
-            return ids
+        """Folded ids, released once the latched window has closed.
+
+        A backward clock jump (NTP correction) counts as expired:
+        negative elapsed must never trap folded asks behind a window
+        that, from the clock's new viewpoint, hasn't even opened."""
+        if self._latched:
+            elapsed = self.clock() - self._window_start
+            if elapsed > ESCALATION_BATCH_WINDOW or elapsed < 0:
+                ids = list(self._pending)
+                self._unlatch()
+                return ids
         return []
 
     def _unlatch(self):
