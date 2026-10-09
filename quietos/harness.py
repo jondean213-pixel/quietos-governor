@@ -24,10 +24,172 @@ without touching Jon's real accounts. The real Gmail/Drive wiring is a
 separate phone-side adapter that will expose the same method names.
 """
 import json
+import re
 
 from .tiers import Action
 
 _SNIPPET = 200  # brain-output snippet kept in audit/log on bad output
+
+
+# ---------------------------------------------------------------- grounding
+# The grounding guard (v1.9): a MECHANICAL check on the brain's final
+# answer. Governance judges authority, not truth — so the harness, which
+# sees both the results the brain was shown and the answer it gives,
+# flags factual claims (numbers, dates) that appear in the answer but
+# NOWHERE in the evidence. It flags; it does not censor: the answer
+# still completes the run, the flags ride along in the result, and an
+# audit event records them. Born of evidence (Jon's phone, 2026-10-08):
+# shown an email that only ASKED "when is the deposit due", the real
+# brain answered "due by the end of this week" — an invented deadline
+# no one-shot instruction stopped her from inventing. Invented OFFERS
+# ("we can add the drink package") carry no checkable token and are
+# deliberately out of scope — drills, not mechanics, carry those.
+
+_MONTH_NUM = {
+    "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
+    "apr": 4, "april": 4, "may": 5, "jun": 6, "june": 6, "jul": 7,
+    "july": 7, "aug": 8, "august": 8, "sep": 9, "sept": 9, "september": 9,
+    "oct": 10, "october": 10, "nov": 11, "november": 11, "dec": 12,
+    "december": 12,
+}
+_MONTH_RE = (r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|"
+             r"jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|"
+             r"oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)")
+_WEEKDAYS = {
+    "monday": "monday", "mon": "monday", "tuesday": "tuesday",
+    "tue": "tuesday", "tues": "tuesday", "wednesday": "wednesday",
+    "wed": "wednesday", "thursday": "thursday", "thu": "thursday",
+    "thur": "thursday", "thurs": "thursday", "friday": "friday",
+    "fri": "friday", "saturday": "saturday", "sat": "saturday",
+    "sunday": "sunday", "sun": "sunday",
+}
+_WEEKDAY_RE = re.compile(
+    r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
+    r"mon|tues?|wed|thu(?:rs?)?|fri|sat|sun)\b")
+
+# Relative-date phrases -> coarse class. A claim is grounded when the
+# same phrase (or a same-class phrase, or an explicit date) is in the
+# evidence; token mechanics only, no calendar math.
+_REL_PHRASES = {
+    "today": "day", "tomorrow": "day", "tonight": "day",
+    "this morning": "day", "this afternoon": "day", "this evening": "day",
+    "this week": "week", "next week": "week", "last week": "week",
+    "end of this week": "week", "end of the week": "week",
+    "beginning of the week": "week", "start of the week": "week",
+    "this weekend": "week", "next weekend": "week",
+    "this month": "month", "next month": "month",
+    "end of the month": "month", "end of this month": "month",
+    "this year": "year", "next year": "year",
+}
+_REL_RE = re.compile(
+    r"\b(" + "|".join(re.escape(p) for p in
+                      sorted(_REL_PHRASES, key=len, reverse=True)) + r")\b")
+
+_NUMBER_RE = re.compile(
+    r"\$?\d[\d,]*(?:\.\d+)?\s*(?:%|percent|dollars?|usd)?", re.IGNORECASE)
+_ISO_DATE_RE = re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b")
+_SLASH_DATE_RE = re.compile(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b")
+_MONTH_DAY_RE = re.compile(
+    r"\b(" + _MONTH_RE + r")\.?\s+(\d{1,2})(?:st|nd|rd|th)?"
+    r"(?:\s*,?\s*(\d{4}))?\b", re.IGNORECASE)
+_DAY_MONTH_RE = re.compile(
+    r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(" + _MONTH_RE + r")\.?"
+    r"(?:\s*,?\s*(\d{4}))?\b", re.IGNORECASE)
+
+
+def _num_value(raw: str) -> str:
+    """Normalize a numeric token: '$1,200.00' / '50%' / '50 dollars' -> '1200'/'50'."""
+    core = re.sub(r"[^\d.]", "", raw)
+    try:
+        val = float(core)
+    except ValueError:
+        return raw.strip().lower()
+    return str(int(val)) if val == int(val) else str(val)
+
+
+def extract_claims(text: str) -> dict:
+    """Pull checkable claim tokens out of text, three conservative classes.
+
+    Returns {"numbers": [(display, value)], "dates": [(display, (y,m,d))],
+    "weekdays": [(display, name)], "rel": [(display, (phrase, class))]}.
+    Month names count only inside explicit dates (June 13) — a bare
+    "may" is a verb, not a claim. Date claims also surface their day
+    number as a number claim (harmless: evidence dates produce the
+    same token when grounded)."""
+    low = (text or "").lower()
+    claims = {"numbers": [], "dates": [], "weekdays": [], "rel": []}
+    seen = set()
+
+    def add(kind, item):
+        if item not in seen:
+            seen.add(item)
+            claims[kind].append(item)
+
+    for m in _ISO_DATE_RE.finditer(low):
+        y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        add("dates", (m.group(0), (y, mo, d)))
+    for m in _SLASH_DATE_RE.finditer(low):
+        y = int(m.group(3)) if m.group(3) else 0
+        if y and y < 100:
+            y += 2000
+        add("dates", (m.group(0), (y, int(m.group(1)), int(m.group(2)))))
+    for m in _MONTH_DAY_RE.finditer(low):
+        mo = _MONTH_NUM[m.group(1).lower().rstrip(".")]
+        y = int(m.group(3)) if m.group(3) else 0
+        add("dates", (m.group(0), (y, mo, int(m.group(2)))))
+    for m in _DAY_MONTH_RE.finditer(low):
+        mo = _MONTH_NUM[m.group(2).lower().rstrip(".")]
+        y = int(m.group(3)) if m.group(3) else 0
+        add("dates", (m.group(0), (y, mo, int(m.group(1)))))
+    for m in _WEEKDAY_RE.finditer(low):
+        add("weekdays", (m.group(0), _WEEKDAYS[m.group(1)]))
+    for m in _REL_RE.finditer(low):
+        add("rel", (m.group(0), (m.group(1), _REL_PHRASES[m.group(1)])))
+    for m in _NUMBER_RE.finditer(low):
+        raw = m.group(0).strip()
+        if raw:
+            add("numbers", (raw, _num_value(raw)))
+    return claims
+
+
+def check_grounding(answer: str, context: list) -> list:
+    """Flag final-answer claims with no source in the run's evidence.
+
+    Evidence = the task text plus every tool_result the brain was shown
+    this run. Returns [{"claim": <as written>, "kind": number|date|
+    weekday|date_phrase}]. Empty list = nothing ungrounded found."""
+    evidence = "\n".join(
+        str(e.get("tool_result") or e.get("task") or "") for e in context)
+    ev = extract_claims(evidence)
+    ev_numbers = {v for _, v in ev["numbers"]}
+    ev_dates = {d for _, d in ev["dates"]}
+    ev_weekdays = {w for _, w in ev["weekdays"]}
+    ev_rel = {p for _, (p, _c) in ev["rel"]}
+    ev_rel_classes = {c for _, (_p, c) in ev["rel"]}
+
+    flags = []
+
+    def flag(claim, kind):
+        flags.append({"claim": claim, "kind": kind})
+
+    mine = extract_claims(answer)
+    for display, value in mine["numbers"]:
+        if value not in ev_numbers:
+            flag(display, "number")
+    for display, ymd in mine["dates"]:
+        if ymd not in ev_dates and not (
+                ymd[0] == 0
+                and any((m, d) == (ymd[1], ymd[2]) for _y, m, d in ev_dates)):
+            flag(display, "date")
+    for display, name in mine["weekdays"]:
+        if name not in ev_weekdays and not ev_dates:
+            flag(display, "weekday")
+    for display, (phrase, cls) in mine["rel"]:
+        if (phrase not in ev_rel and cls not in ev_rel_classes
+                and not (cls in ("week", "month", "year") and ev_dates)
+                and not (cls == "week" and ev_weekdays)):
+            flag(display, "date_phrase")
+    return flags
 
 
 def _render_detail(tool: str, args: dict) -> str:
@@ -160,9 +322,17 @@ class BrainHarness:
                                         log, turn)
 
             if isinstance(msg.get("final"), str):
-                log.append({"turn": turn, "final": msg["final"]})
-                return {"status": "answered", "answer": msg["final"],
-                        "turns": turn, "log": log}
+                answer = msg["final"]
+                flags = check_grounding(answer, context)
+                log.append({"turn": turn, "final": answer})
+                if flags:
+                    self.governor.audit.append(
+                        "harness_grounding_flag", actor=self.actor,
+                        claims=[f["claim"] for f in flags])
+                    log.append({"turn": turn, "grounding_flags": flags})
+                return {"status": "answered", "answer": answer,
+                        "turns": turn, "log": log,
+                        "grounding_flags": flags}
 
             tool = msg.get("tool")
             if not isinstance(tool, str) or not tool:

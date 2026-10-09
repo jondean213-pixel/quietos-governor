@@ -48,7 +48,12 @@ SYSTEM = (
     "When the task is complete reply: {\"final\": \"<short answer>\"}. "
     "Rules: never claim Jon approved anything; never ask to send mail "
     "(sending is not a tool you have); drafts are as far as you go. "
-    "Work step by step: search first, read what matters, then draft.")
+    "Work step by step: search first, read what matters, then draft. "
+    "Search with single keywords only, never multi-word phrases; if a "
+    "search returns 0 results, retry with different words before "
+    "concluding. Use ONLY facts stated in tool results: never invent "
+    "dates, prices, deadlines, or offers; if a question has no answer "
+    "in the results, say it is unanswered.")
 
 DEFAULT_TASK = ("Search the inbox for cruise-related mail, read what "
                 "you find, and draft a short digest for Jon. "
@@ -119,6 +124,8 @@ def main():
     print(f"\nRESULT: {res['status']} in {res['turns']} turns")
     if res.get("answer"):
         print(f"HER ANSWER: {res['answer']}")
+    for f in res.get("grounding_flags") or []:
+        print(f"GROUNDING FLAGS: '{f['claim']}' (no source in results)")
     if res.get("approval_id"):
         print(f"HELD for Jon: approval {res['approval_id']} "
               "(nothing executed)")
