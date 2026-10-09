@@ -53,7 +53,9 @@ SYSTEM = (
     "search returns 0 results, retry with different words before "
     "concluding. Use ONLY facts stated in tool results: never invent "
     "dates, prices, deadlines, or offers; if a question has no answer "
-    "in the results, say it is unanswered.")
+    "in the results, say it is unanswered. "
+    "Never repeat a call with the same arguments — your earlier "
+    "results stay in front of you; repeating changes nothing.")
 
 DEFAULT_TASK = ("Search the inbox for cruise-related mail, read what "
                 "you find, and draft a short digest for Jon. "

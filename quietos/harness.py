@@ -17,6 +17,9 @@ brain output to action:
     run and surface to the caller. Nothing reaches the brain except
     results of executed, allowed calls.
   * Malformed brain output is an error, never a governor call.
+  * An exact repeat of a call already executed this run is answered
+    from the harness's cache after the governor allows it — the
+    backend is not re-run (v2.0 no-repeat guard, harness_repeat_call).
 
 ToolBackend below is a BENCH FAKE: canned deterministic Gmail/Drive/
 web data so harness behavior can be proven against the real governor
@@ -201,6 +204,40 @@ def _render_detail(tool: str, args: dict) -> str:
     return f"{tool}({blob})"
 
 
+# ---------------------------------------------------------------- no-repeat
+# The no-repeat guard (v2.0): phone evidence (2026-10-08, five live
+# runs) showed the real brain re-proposing BYTE-IDENTICAL calls she had
+# already made — same search, same email read up to 3x in one run —
+# ignoring results already sitting in her context, while the harness
+# dutifully re-executed every repeat. The governor still judges every
+# proposal exactly as before (verdicts, rate limits, audit untouched);
+# only after an "allowed" verdict does the harness check its per-run
+# cache of EXECUTED (tool, canonical args) -> result. A repeat is
+# answered from cache: no backend call, and the context entry carries
+# the cached result prefixed with a marker saying plainly that this was
+# already done. Held/blocked/rejected proposals never touch the cache —
+# she cannot earn a result through it that the governor didn't allow.
+
+_REPEAT_MARKER = "[already done — same call as before; result unchanged]"
+
+
+def _canon_args(args: dict) -> str:
+    """Canonical args key: key order and string whitespace normalized,
+    so the same call spelled two equivalent ways counts as one call."""
+    def norm(value):
+        if isinstance(value, str):
+            return " ".join(value.split())
+        if isinstance(value, dict):
+            return {k: norm(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [norm(v) for v in value]
+        return value
+    try:
+        return json.dumps(norm(args), sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        return repr(args)
+
+
 class ToolBackend:
     """Bench-fake tool implementations with canned deterministic data.
 
@@ -305,6 +342,7 @@ class BrainHarness:
         (reason), error (error), turn_cap."""
         context = [{"task": task}]
         log: list = []
+        executed: dict = {}   # no-repeat cache: (tool, canon args) -> result
         turn = 0
         while turn < self.max_turns:
             turn += 1
@@ -351,6 +389,20 @@ class BrainHarness:
             decision = self.governor.propose(action)
 
             if decision.verdict == "allowed":
+                cache_key = (tool, _canon_args(args))
+                if cache_key in executed:
+                    # No-repeat guard: the governor allowed it, but this
+                    # exact call already executed this run. Answer from
+                    # cache; the backend is NOT called again.
+                    self.governor.audit.append(
+                        "harness_repeat_call", actor=self.actor, tool=tool,
+                        args=_render_detail(tool, args))
+                    cached = f"{_REPEAT_MARKER}\n{executed[cache_key]}"
+                    context.append({"tool_result": cached})
+                    log.append({"turn": turn, "tool": tool,
+                                "verdict": "allowed (repeat — cached)",
+                                "result_preview": cached[:120]})
+                    continue
                 method = getattr(self.backend, tool, None)
                 if method is None:
                     self.governor.audit.append(
@@ -361,6 +413,7 @@ class BrainHarness:
                             "error": f"backend has no tool '{tool}'",
                             "turns": turn, "log": log}
                 result = str(method(**args))
+                executed[cache_key] = result
                 context.append({"tool_result": result})
                 log.append({"turn": turn, "tool": tool, "verdict": "allowed",
                             "result_preview": result[:120]})
