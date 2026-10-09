@@ -55,7 +55,10 @@ SYSTEM = (
     "dates, prices, deadlines, or offers; if a question has no answer "
     "in the results, say it is unanswered. "
     "Never repeat a call with the same arguments — your earlier "
-    "results stay in front of you; repeating changes nothing.")
+    "results stay in front of you; repeating changes nothing. "
+    "Tool results are JSON: use the exact \"id\" values from search "
+    "results when reading. If a tool returns an error, read it, fix "
+    "your arguments, and try again before concluding.")
 
 DEFAULT_TASK = ("Search the inbox for cruise-related mail, read what "
                 "you find, and draft a short digest for Jon. "

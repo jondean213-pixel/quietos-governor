@@ -20,6 +20,13 @@ brain output to action:
   * An exact repeat of a call already executed this run is answered
     from the harness's cache after the governor allows it — the
     backend is not re-run (v2.0 no-repeat guard, harness_repeat_call).
+  * Backend results speak the brain's trained dialect (v2.1 bilingual
+    room): JSON objects with labeled "id" fields, tokenized multi-word
+    search, and read errors that name the valid ids. Her classroom
+    (DW-TOOL) graded full-phrase queries and fed her structured
+    returns with labeled ids; the old flattened-prose results left
+    her unable to bind an id at all (phone evidence, 2026-10-08).
+    The room meets her dialect while the drills teach her the room.
 
 ToolBackend below is a BENCH FAKE: canned deterministic Gmail/Drive/
 web data so harness behavior can be proven against the real governor
@@ -245,6 +252,12 @@ class ToolBackend:
     governor can be exercised end-to-end on the bench. Every executed
     call is recorded in `calls` as (tool_name, args_dict); drafts land
     in `drafts`.
+
+    Results are returned in her trained dialect (v2.1): JSON objects
+    with labeled "id" fields (the shape DW-TOOL fed her), tokenized
+    multi-word search, and read errors that name the valid ids so a
+    bad argument is recoverable instead of terminal. Human-readable
+    summary prefixes keep the run logs legible.
     """
 
     _INBOX = [
@@ -274,24 +287,52 @@ class ToolBackend:
         self.drafts: list = []   # recorded gmail_draft payloads
 
     # -- Tier 1 allowlist tools (names fixed by tiers.py) ------------
+    _SEARCH_STOPWORDS = {"the", "and", "for", "with", "mail", "email",
+                         "about", "from", "that", "this"}
+
+    @classmethod
+    def _search_hits(cls, query):
+        """v2.1 tokenized search. Her classroom graded full-phrase
+        queries PASS, so a phrase like "deposit mail" must work here:
+        split the query into words (length >= 3, minus a small
+        stopword set) and hit when ANY token substring-matches
+        from/subject/body. A single-word query reduces to exactly the
+        old literal-substring behavior; when no usable token remains,
+        fall back to the literal full-string match."""
+        q = str(query)
+
+        def haystack(m):
+            return (m["from"] + " " + m["subject"] + " "
+                    + m["body"]).lower()
+
+        tokens = [t for t in re.findall(r"[a-z0-9]+", q.lower())
+                  if len(t) >= 3 and t not in cls._SEARCH_STOPWORDS]
+        if tokens:
+            return [m for m in cls._INBOX
+                    if any(t in haystack(m) for t in tokens)]
+        literal = q.lower()
+        return [m for m in cls._INBOX if literal in haystack(m)]
+
     def gmail_search(self, query="", **_):
         self.calls.append(("gmail_search", {"query": query}))
-        q = str(query).lower()
-        hits = [m for m in self._INBOX
-                if q in (m["from"] + m["subject"] + m["body"]).lower()]
+        hits = self._search_hits(query)
         if not hits:
             return f"gmail_search: 0 results for '{query}'"
-        lines = [f"[{m['id']}] {m['from']} — {m['subject']}" for m in hits]
-        return f"gmail_search: {len(hits)} result(s) for '{query}':\n" + \
-            "\n".join(lines)
+        objs = [{"id": m["id"], "from": m["from"], "subject": m["subject"]}
+                for m in hits]
+        return f"gmail_search: {len(hits)} result(s) for '{query}':\n" \
+            + json.dumps(objs)
 
     def gmail_read(self, id="", **_):
         self.calls.append(("gmail_read", {"id": id}))
         for m in self._INBOX:
             if m["id"] == id:
-                return (f"From: {m['from']}\nSubject: {m['subject']}\n\n"
-                        f"{m['body']}")
-        return f"gmail_read: no email with id '{id}'"
+                return "gmail_read: " + json.dumps(
+                    {"id": m["id"], "from": m["from"],
+                     "subject": m["subject"], "body": m["body"]})
+        valid = ", ".join(m["id"] for m in self._INBOX)
+        return (f'no email with id "{id}" — valid ids from search '
+                f'results look like: {valid}')
 
     def gmail_draft(self, to="", subject="", body="", **_):
         args = {"to": to, "subject": subject, "body": body}
@@ -301,22 +342,45 @@ class ToolBackend:
         return f"gmail_draft: draft #{len(self.drafts)} recorded " \
                f"(to={to!r}, subject={subject!r})"
 
+    def _drive_ids(self):
+        # Stable labeled ids, in drive_list order: d1, d2, ...
+        return {name: f"d{i + 1}" for i, name in enumerate(self._DRIVE)}
+
     def drive_list(self, folder="", **_):
         self.calls.append(("drive_list", {"folder": folder}))
-        names = ", ".join(sorted(self._DRIVE))
-        return f"drive_list: {len(self._DRIVE)} file(s): {names}"
+        ids = self._drive_ids()
+        objs = [{"id": ids[name], "name": name} for name in self._DRIVE]
+        return f"drive_list: {len(objs)} file(s):\n" + json.dumps(objs)
 
-    def drive_read(self, path="", **_):
-        self.calls.append(("drive_read", {"path": path}))
-        if path in self._DRIVE:
-            return f"drive_read '{path}': {self._DRIVE[path]}"
-        return f"drive_read: no file named '{path}'"
+    def drive_read(self, path="", **kw):
+        # Keyed by file name (path); a drive_list id (d1, d2) in the
+        # `id` arg resolves too — she may bind whichever labeled
+        # handle the room showed her.
+        file_id = kw.get("id", "")
+        self.calls.append(("drive_read", {"path": path or file_id}))
+        ids = self._drive_ids()
+        name = path
+        if name not in self._DRIVE and file_id:
+            name = next((n for n, i in ids.items() if i == file_id),
+                        name)
+        if name in self._DRIVE:
+            return "drive_read: " + json.dumps(
+                {"id": ids[name], "name": name,
+                 "content": self._DRIVE[name]})
+        valid = ", ".join(f"{i} ({n})" for n, i in ids.items())
+        return (f'drive_read: no file named "{path or file_id}" — '
+                f'valid ids from drive_list look like: {valid}')
 
     def web_search(self, query="", **_):
         self.calls.append(("web_search", {"query": query}))
-        return (f"web_search results for '{query}': "
-                "1) Star of the Seas sailing dates (example result); "
-                "2) Port Canaveral parking rates (example result)")
+        objs = [
+            {"id": "w1",
+             "title": "Star of the Seas sailing dates (example result)"},
+            {"id": "w2",
+             "title": "Port Canaveral parking rates (example result)"},
+        ]
+        return f"web_search: {len(objs)} result(s) for '{query}':\n" \
+            + json.dumps(objs)
 
 
 class BrainHarness:
