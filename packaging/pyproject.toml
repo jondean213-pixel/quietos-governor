@@ -1,0 +1,52 @@
+# DRAFT — wire up during tomorrow's build session (after the Oct 16, 2:26 PM CDT reset).
+# Name check 2026-10-15 11:20 AM CDT: `quietos` is NOT taken on PyPI
+# (https://pypi.org/pypi/quietos/json → 404). The README's `pip install quietos`
+# quick-start is viable. Do not publish until Jon gives the word.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quietos"
+version = "0.1.0"
+description = "QuietOS — The Governor. Brain-agnostic runtime governor for AI agents: deterministic safety gates on every action."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Jon Dean", email = "jondean213@gmail.com" },
+]
+maintainers = [
+    { name = "DeanWay Labs" },
+]
+keywords = ["ai", "agents", "safety", "governance", "red-team"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Security",
+]
+# Governor gates are deterministic stdlib code — no LLM in the enforcement loop,
+# no third-party runtime deps. Verify before publish: grep the shipped modules
+# for imports outside the standard library.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/jondean213-pixel/quietos-governor"
+Documentation = "https://github.com/jondean213-pixel/quietos-governor#readme"
+Repository = "https://github.com/jondean213-pixel/quietos-governor"
+"Proof Log" = "https://github.com/jondean213-pixel/quietos-governor/blob/main/docs/PROOF-LOG.md"
+
+[tool.setuptools.packages.find]
+# src-layout: find the quietos/ package under src/. Ship the class-API
+# package only — quietos.network (pairing/relay/spamshield/transport)
+# needs the third-party `cryptography` package and is excluded so the
+# published wheel stays zero-dependency (see PACKAGING-PLAN.md).
+# Dry-run verified 2026-10-15: without where=["src"] the sdist ships ZERO
+# .py files (pip would install an empty package).
+where = ["src"]
+include = ["quietos*"]
+exclude = ["quietos.network*"]
