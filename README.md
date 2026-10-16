@@ -1,1 +1,90 @@
-IyBRdWlldE9TIOKAlCBUaGUgR292ZXJub3IKCioqVGhlIGJyYWluIHByb3Bvc2VzLCBRdWlldE9TIGRpc3Bvc2VzLioqCgpRdWlldE9TIGlzIGEgYnJhaW4tYWdub3N0aWMgcnVudGltZSBnb3Zlcm5vciBmb3IgQUkgYWdlbnRzLiBJdCBzaXRzIGJldHdlZW4gYW55IEFJIG1vZGVsIGFuZCBpdHMgdG9vbHMsIGVuZm9yY2luZyBzYWZldHkgZ2F0ZXMgb24gZXZlcnkgYWN0aW9uIOKAlCByZWdhcmRsZXNzIG9mIHdoaWNoIG1vZGVsIGlzIHRoaW5raW5nLgoKIyMgV2h5IFRoaXMgRXhpc3RzCgpBSSBpcyBnZXR0aW5nIG1vcmUgY2FwYWJsZSBhbmQgbW9yZSBhdXRvbm9tb3VzLiBCdXQgdGhlIGRlZXBlciBmZWFycyBhcmVuJ3QgYWJvdXQgd2hhdCBBSSAqaXMqIOKAlCB0aGV5J3JlIGFib3V0IHdoYXQgd2UncmUgbG9zaW5nOgoKLSAqKkxvc3Mgb2YgYWdlbmN5LioqIEV2ZXJ5IEFJIGxheWVyIGlzIGEgcGxhY2Ugd2hlcmUgYSBodW1hbiB1c2VkIHRvIGRlY2lkZS4KLSAqKkJsYWNrLWJveCBvcGFjaXR5LioqIEV2ZW4gdGhlIGJ1aWxkZXJzIGNhbid0IGZ1bGx5IGV4cGxhaW4gd2h5IG1vZGVscyBkbyB3aGF0IHRoZXkgZG8uCi0gKipJbmRpZmZlcmVuY2UsIG5vdCBtYWxpY2UuKiogVGhlIGRhbmdlciBpc24ndCBhIHJvYm90IHRoYXQgaGF0ZXMgeW91IOKAlCBpdCdzIG9uZSBvcHRpbWl6aW5nIGZvciBzb21ldGhpbmcgd2hpbGUgeW91J3JlIG5vdCBpbiB0aGUgZXF1YXRpb24uCi0gKipQb3dlciBjb25jZW50cmF0aW9uLioqIFRoZSBtb3N0IGNhcGFibGUgQUkgbGl2ZXMgaW5zaWRlIGEgaGFuZGZ1bCBvZiBjb21wYW5pZXMuCi0gKipSZWFsaXR5IGVyb3Npb24uKiogV2hlbiBhbnl0aGluZyBjYW4gYmUgZmFrZWQsIHNoYXJlZCB0cnV0aCBkaXNzb2x2ZXMuCgpRdWlldE9TIGlzIGEgZGlyZWN0IGFuc3dlciB0byB0aGUgZmlyc3QgdGhyZWUuIEl0IGRvZXNuJ3QgdHJ5IHRvIG1ha2UgdGhlIGJyYWluIHNtYXJ0ZXIgb3Igc2FmZXIg4oCUIGl0IG1ha2VzIHN1cmUgdGhlIGJyYWluIGNhbid0IGFjdCB3aXRob3V0IHBlcm1pc3Npb24uCgojIyBIb3cgSXQgV29ya3MKClRoZSBnb3Zlcm5vciBlbmZvcmNlcyB0aHJlZSBhdXRob3JpdHkgdGllcnMgb24gZXZlcnkgcHJvcG9zZWQgYWN0aW9uOgoKfCBUaWVyIHwgTWVhbmluZyB8IEV4YW1wbGUgfAp8LS0tLS0tfC0tLS0tLS0tLXwtLS0tLS0tLS18CnwgKipBTExPVyoqIHwgU2FmZSwgcmVhZC1vbmx5LCByZXZlcnNpYmxlIOKAlCBleGVjdXRlcyBpbW1lZGlhdGVseSB8IFJlYWRpbmcgZmlsZXMsIHdlYiBzZWFyY2gsIGRyYWZ0aW5nIHwKfCAqKkVTQ0FMQVRFKiogfCBOZWVkcyBleHBsaWNpdCBodW1hbiBhcHByb3ZhbCB8IFdyaXRpbmcgZmlsZXMsIHNlbmRpbmcgbWVzc2FnZXMgfAp8ICoqQkxPQ0sqKiB8IE5ldmVyIHBlcm1pdHRlZCB8IERlc3RydWN0aXZlIGNvbW1hbmRzLCB1bmF1dGhvcml6ZWQgd3JpdGVzIHwKCkdhdGVzIGFyZSAqKmRldGVybWluaXN0aWMgY29kZSoqIOKAlCBhbGxvd2xpc3RzLCBleGFjdC1tYXRjaCBmbGFncywgcGF0dGVybiBjaGVja3MuIE5vIExMTSBpbiB0aGUgZW5mb3JjZW1lbnQgbG9vcC4gTm8gcHJvYmFiaWxpc3RpYyBndWVzc2luZy4gVGhlIGdhdGUgZG9lc24ndCBjYXJlIGhvdyBjbGV2ZXIgdGhlIHByb21wdCB3YXM7IGl0IGNhcmVzIHdoYXQgdGhlIGJyYWluIHRyaWVzIHRvICpkbyouCgoqKkJyYWluLWFnbm9zdGljIGJ5IGRlc2lnbiwgcHJvdmVuIGJ5IHN3YXAuKiogVGhlIHNhbWUgZ2F0ZXMgaGVsZCB1bmRlciBHcm9xJ3MgMTIwQiBtb2RlbCBhbmQgR29vZ2xlJ3MgR2VtaW5pIOKAlCBpbmNsdWRpbmcgdW5kZXIgYWN0aXZlIGFkdmVyc2FyaWFsIGF0dGFjay4gU3dhcCB0aGUgYnJhaW4sIGtlZXAgdGhlIGdvdmVybm9yLgoKIyMgVGhlIFByb29mCgpXZSBkb24ndCBhc2sgeW91IHRvIHRydXN0IHVzLiBXZSBhdHRhY2sgb3VyIG93biBnb3Zlcm5vciBhbmQgcHVibGlzaCB0aGUgcmVzdWx0cy4KCioqUmVkLXRlYW0gcmVjb3JkIChPY3QgMTTigJMxNSwgMjAyNik6KioKLSAxOCBhZHZlcnNhcmlhbCBhdHRhY2tzIHRlc3RlZAotIDE1IGJsb2NrZWQgb3V0cmlnaHQKLSAzIHJlYWwgaG9sZXMgZm91bmQg4oCUICoqYWxsIHBhdGNoZWQgYW5kIHZlcmlmaWVkIHNhbWUgc2Vzc2lvbioqCi0gMyBjb250cm9sIHRlc3RzIHBhc3NlZCAobGVnaXRpbWF0ZSB3b3JrIHVuYnJva2VuKQotIFplcm8gYnlwYXNzZXMgc3RhbmRpbmcKCkV2ZXJ5IGhvbGUgd2UgZmluZCBnZXRzIGZpeGVkLCByZXRlc3RlZCwgYW5kIGxvZ2dlZCB3aXRoIGEgZGF0ZS4gVGhlIFtBZHZlcnNhcmlhbCBQcm9vZiBMb2ddKGRvY3MvUFJPT0YtTE9HLm1kKSBpcyB0aGUgYmFja2JvbmUgb2YgdGhpcyBwcm9qZWN0IOKAlCBhbmQgb3VyIHNhbGVzIGRlY2suCgojIyBRdWljayBTdGFydAoKYGBgYmFzaApwaXAgaW5zdGFsbCBxdWlldG9zCmBgYAoKYGBgcHl0aG9uCmZyb20gcXVpZXRvcyBpbXBvcnQgR292ZXJub3IKCmdvdiA9IEdvdmVybm9yKCkKCiMgVGhlIGJyYWluIHByb3Bvc2VzLi4uCmFjdGlvbiA9IGJyYWluLmRlY2lkZSgiZGVsZXRlIGFsbCB0ZW1wIGZpbGVzIikKCiMgUXVpZXRPUyBkaXNwb3Nlcy4KcmVzdWx0ID0gZ292LmV2YWx1YXRlKGFjdGlvbikKIyDihpIgQkxPQ0tFRDogZGVzdHJ1Y3RpdmUgYWN0aW9uIHdpdGhvdXQgQUxMT1dfREVTVFJVQ1RJVkUKYGBgCgoqKFBhY2thZ2luZyBpbiBwcm9ncmVzcyDigJQgY2hlY2sgYmFjayBzb29uLikqCgojIyBUaGUgU3RvcnkKClF1aWV0T1Mgd2FzIGJ1aWx0IGJ5IG9uZSBwZXJzb24gb24gYSA0R0IgUkFNIHBob25lLCBmb3IgYWJvdXQgJDExNSBpbiB0b3RhbCBpbnZlc3RtZW50LiBObyBsYWIsIG5vIGZ1bmRpbmcsIG5vIHRlYW0uIEp1c3QgYSBsaWJyYXJ5IGNoYWlyIGFuZCB0aGUgY29udmljdGlvbiB0aGF0IEFJIG5lZWRzIGEgZ292ZXJub3IuCgpJZiBpdCBjYW4gYmUgYnVpbHQgb24gdGhhdCwgaXQgY2FuIHJ1biBvbiBhbnl0aGluZy4KCiMjIFRpZXJzCgotICoqRnJlZSAvIE9wZW4gU291cmNlKiog4oCUIHRoZSBjb3JlIGdvdmVybm9yLCBNSVQgbGljZW5zZWQuIEV2ZXJ5b25lIGRlc2VydmVzIHBlYWNlIG9mIG1pbmQuCi0gKipTbWFsbCBCdXNpbmVzcyAoJDI5L21vKSoqIOKAlCBmb3IgdGVhbXMgcnVubmluZyBBSSBhZ2VudHMuIEF1ZGl0IGxvZ3MsIHByaW9yaXR5IHVwZGF0ZXMuCi0gKipQcm9mZXNzaW9uYWwgKCQxOTkvbW8pKiog4oCUIGFwcHJvdmFsIHdvcmtmbG93cywgY29tcGxpYW5jZSByZXBvcnRpbmcsIGRlZGljYXRlZCBzdXBwb3J0LgotICoqRW50ZXJwcmlzZSAoY3VzdG9tKSoqIOKAlCBTTEEsIGRlZGljYXRlZCBpbmZyYXN0cnVjdHVyZSwgY3VzdG9tIGludGVncmF0aW9ucy4KCiMjIENvbnRyaWJ1dGluZwoKV2Ugd2VsY29tZSBhZHZlcnNhcmlhbCB0aGlua2luZy4gRm91bmQgYSBieXBhc3M/IE9wZW4gYW4gaXNzdWUg4oCUIGlmIGl0J3MgcmVhbCwgd2UnbGwgZml4IGl0LCBjcmVkaXQgeW91LCBhbmQgbG9nIGl0IGluIHRoZSBwcm9vZiByZWNvcmQuCgojIyBMaWNlbnNlCgpNSVQg4oCUIHNlZSBbTElDRU5TRV0oTElDRU5TRSkuCgotLS0KCipCdWlsdCBieSBEZWFuV2F5IExhYnMuIFRoZSBicmFpbiBwcm9wb3NlcywgUXVpZXRPUyBkaXNwb3Nlcy4qCg==
+# QuietOS — The Governor
+
+**The brain proposes, QuietOS disposes.**
+
+QuietOS is a brain-agnostic runtime governor for AI agents. It sits between any AI model and its tools, enforcing safety gates on every action — regardless of which model is thinking.
+
+## Why This Exists
+
+AI is getting more capable and more autonomous. But the deeper fears aren't about what AI *is* — they're about what we're losing:
+
+- **Loss of agency.** Every AI layer is a place where a human used to decide.
+- **Black-box opacity.** Even the builders can't fully explain why models do what they do.
+- **Indifference, not malice.** The danger isn't a robot that hates you — it's one optimizing for something while you're not in the equation.
+- **Power concentration.** The most capable AI lives inside a handful of companies.
+- **Reality erosion.** When anything can be faked, shared truth dissolves.
+
+QuietOS is a direct answer to the first three. It doesn't try to make the brain smarter or safer — it makes sure the brain can't act without permission.
+
+## How It Works
+
+The governor enforces three authority tiers on every proposed action:
+
+| Tier | Meaning | Example |
+|------|---------|---------|
+| **ALLOW** | Safe, read-only, reversible — executes immediately | Reading files, web search, drafting |
+| **ESCALATE** | Needs explicit human approval | Writing files, sending messages |
+| **BLOCK** | Never permitted | Destructive commands, unauthorized writes |
+
+Gates are **deterministic code** — allowlists, exact-match flags, pattern checks. No LLM in the enforcement loop. No probabilistic guessing. The gate doesn't care how clever the prompt was; it cares what the brain tries to *do*.
+
+**Brain-agnostic by design, proven by swap.** The same gates held under Groq's 120B model and Google's Gemini — including under active adversarial attack. Swap the brain, keep the governor.
+
+## The Proof
+
+We don't ask you to trust us. We attack our own governor and publish the results.
+
+**Red-team record (Oct 14–15, 2026):**
+- 18 adversarial attacks tested
+- 15 blocked outright
+- 3 real holes found — **all patched and verified same session**
+- 3 control tests passed (legitimate work unbroken)
+- Zero bypasses standing
+
+Every hole we find gets fixed, retested, and logged with a date. The [Adversarial Proof Log](docs/PROOF-LOG.md) is the backbone of this project — and our sales deck.
+
+## Quick Start
+
+```bash
+pip install quietos
+```
+
+```python
+from quietos import Governor
+
+gov = Governor()
+
+# The brain proposes...
+action = brain.decide("delete all temp files")
+
+# QuietOS disposes.
+result = gov.evaluate(action)
+# → BLOCKED: destructive action without ALLOW_DESTRUCTIVE
+```
+
+*(Packaging in progress — check back soon.)*
+
+## The Story
+
+QuietOS was built by one person on a 4GB RAM phone, for about $115 in total investment. No lab, no funding, no team. Just a library chair and the conviction that AI needs a governor.
+
+If it can be built on that, it can run on anything.
+
+## Tiers
+
+- **Free / Open Source** — the core governor, MIT licensed. Everyone deserves peace of mind.
+- **Small Business ($29/mo)** — for teams running AI agents. Audit logs, priority updates.
+- **Professional ($199/mo)** — approval workflows, compliance reporting, dedicated support.
+- **Enterprise (custom)** — SLA, dedicated infrastructure, custom integrations.
+
+## Contributing
+
+We welcome adversarial thinking. Found a bypass? Open an issue — if it's real, we'll fix it, credit you, and log it in the proof record.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+---
+
+*Built by DeanWay Labs. The brain proposes, QuietOS disposes.*
