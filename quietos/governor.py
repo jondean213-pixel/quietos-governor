@@ -35,16 +35,39 @@ class Decision:
 
 
 class Governor:
-    def __init__(self, audit_path: str, clock=None):
+    def __init__(self, audit_path: str | None = None, clock=None):
         import time
+        import os
         self.clock = clock or time.time
         self.roam_enabled = False  # Jon's harness flips this; off by default
+        if audit_path is None:
+            # Zero-arg quick-start: audit to the user's home dir.
+            audit_path = os.path.join(os.path.expanduser("~"), ".quietos", "audit.log")
         self.audit = AuditLog(audit_path)
         self.approvals = ApprovalQueue(clock=self.clock)
         self.limiter = RateLimiter(clock=self.clock)
         self.batcher = EscalationBatcher(clock=self.clock)
         self.heartbeat = GovernorHeartbeat(clock=self.clock)
         self.jon_notifications: list = []  # (kind, payload) — phone delivers these
+
+    # Command substrings that read as destructive intent. The brain never
+    # runs these — they classify Tier 3 outright (cf. the runner's
+    # ALLOW_DESTRUCTIVE gate).
+    _DESTRUCTIVE_HINTS = ("rm -rf", "rm -r ", "del ", "delete", "format",
+                          "mkfs", "dd if=")
+
+    def evaluate(self, command: str) -> Decision:
+        """Quick-start convenience: propose a raw shell command string and
+        get back a Decision. Destructive-looking commands land in Tier 3
+        (blocked); everything else flows through propose() honestly."""
+        lowered = command.lower()
+        if any(h in lowered for h in self._DESTRUCTIVE_HINTS):
+            action = Action(actor="brain", kind="destructive",
+                            detail=command, target=command)
+        else:
+            action = Action(actor="brain", kind="tool_call", tool="run_shell",
+                            detail=command, target=command)
+        return self.propose(action)
 
     # -- the gate ------------------------------------------------------
     def _targets_audit_trail(self, action: Action) -> bool:
