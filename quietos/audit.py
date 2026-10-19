@@ -33,13 +33,23 @@ class AuditLog:
         return json.loads(lines[-1])
 
     def append(self, event: str, **fields) -> dict:
-        prev = self._last()
-        entry = {"seq": prev["seq"] + 1, "event": event, "ts": time.time(),
-                 "prev_hash": prev["hash"]}
-        entry.update(fields)
-        entry["hash"] = self._hash({k: v for k, v in entry.items() if k != "hash"})
-        with open(self.path, "a") as f:
-            f.write(json.dumps(entry) + "\n")
+        # Finding 8 (2026-10-19): the read-tail → compute → append was not
+        # atomic. Two concurrent appends could read the same tail and fork
+        # the hash chain. fcntl.flock serializes the whole operation.
+        import fcntl
+        with open(self.path, "a+") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            try:
+                prev = self._last()
+                entry = {"seq": prev["seq"] + 1, "event": event,
+                         "ts": time.time(), "prev_hash": prev["hash"]}
+                entry.update(fields)
+                entry["hash"] = self._hash(
+                    {k: v for k, v in entry.items() if k != "hash"})
+                f.write(json.dumps(entry) + "\n")
+                f.flush()
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
         return entry
 
     def verify(self) -> tuple[bool, str]:

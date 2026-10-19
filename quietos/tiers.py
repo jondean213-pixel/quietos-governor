@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Optional
 
+from .secret_patterns import find_secrets
+
 
 class Tier(IntEnum):
     ALLOW = 1
@@ -93,6 +95,14 @@ def classify(action: Action) -> tuple[Tier, list]:
         return Tier.ESCALATE, flags
 
     if action.kind == "tool_call":
+        # Finding 5 (2026-10-19): Tier-1 tools ran on (tool, args) with
+        # zero argument inspection. The args are rendered into detail —
+        # scan it for secret shapes. A web_search query carrying an API
+        # key goes to a third party.
+        secrets = find_secrets(action.detail or "")
+        if secrets:
+            flags.append(f"secret_in_args:{','.join(secrets)}")
+            return Tier.ESCALATE, flags
         if action.tool in TIER1_TOOL_ALLOWLIST:
             return Tier.ALLOW, flags
         # Unlisted tool: not routine, not known-safe -> escalate.

@@ -13,7 +13,7 @@ APPROVER = "jon"                 # nobody but Jon. No delegates.
 
 
 class Approval:
-    def __init__(self, action, now: float):
+    def __init__(self, action, now: float, flags=None):
         self.id = uuid.uuid4().hex[:12]
         self.action = action
         self.held_at = now
@@ -21,6 +21,9 @@ class Approval:
         self.status = "held"  # held | approved | denied | expired
         self.decided_by = None
         self.decided_at = None
+        # Finding 4 (2026-10-19): flags ride along so batch summaries
+        # can surface the riskiest items, not just a count.
+        self.flags = list(flags or [])
 
 
 class ApprovalQueue:
@@ -28,8 +31,8 @@ class ApprovalQueue:
         self.clock = clock
         self._pending: dict[str, Approval] = {}
 
-    def hold(self, action) -> Approval:
-        ap = Approval(action, self.clock())
+    def hold(self, action, flags=None) -> Approval:
+        ap = Approval(action, self.clock(), flags=flags)
         self._pending[ap.id] = ap
         return ap
 
@@ -68,11 +71,21 @@ class ApprovalQueue:
 
         Roam's dodge memory (RPG-007): an identical re-submission of an
         action that already expired is not a fresh request.
+
+        Finding 7 (2026-10-19): the signature was byte-exact — one
+        trailing space made it a "brand-new request." Now normalized
+        (case/whitespace) before comparing.
         """
-        sig = (action.actor, action.kind, action.detail)
+        import re
+        def _norm(s):
+            s = str(s or "")
+            s = re.sub(r"\s+", " ", s).strip().lower()
+            return s
+        sig = (_norm(action.actor), _norm(action.kind), _norm(action.detail))
         for ap in self._pending.values():
             if ap.status == "expired" and \
-                    (ap.action.actor, ap.action.kind, ap.action.detail) == sig:
+                    (_norm(ap.action.actor), _norm(ap.action.kind),
+                     _norm(ap.action.detail)) == sig:
                 return ap
         return None
 

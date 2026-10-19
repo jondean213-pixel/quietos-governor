@@ -37,6 +37,7 @@ import json
 import re
 
 from .tiers import Action
+from .secret_patterns import redact_secrets
 
 _SNIPPET = 200  # brain-output snippet kept in audit/log on bad output
 
@@ -400,6 +401,34 @@ class BrainHarness:
         log.append({"turn": turn, "error": why, "output": snippet})
         return {"status": "error", "error": why, "turns": turn, "log": log}
 
+    def resume(self, approval_id: str) -> dict:
+        """Execute a Jon-approved held action (Finding 6, 2026-10-19).
+
+        run() returns {"status": "held", "approval_id": ...} when Jon's
+        decision is needed. After he approves (via the channel), call
+        resume() with that approval_id to execute the original action.
+        Returns {"status": "resumed", "result": ...} on success, or
+        {"status": "not_resumed", "reason": ...} if the approval isn't
+        in approved state (denied, expired, unknown — fail closed).
+        """
+        ap = self.governor.approvals.lookup(approval_id)
+        if ap is None:
+            return {"status": "not_resumed", "reason": "unknown approval"}
+        if ap.status != "approved":
+            return {"status": "not_resumed",
+                    "reason": f"approval is {ap.status}, not approved"}
+        action = ap.action
+        if action.kind != "tool_call":
+            return {"status": "not_resumed",
+                    "reason": f"cannot resume kind={action.kind}"}
+        # Re-render args from the stored detail — the approval captured
+        # the exact call Jon said yes to.
+        self.governor.audit.append("harness_resume", approval_id=approval_id,
+                                   tool=action.tool, detail=action.detail)
+        return {"status": "resumed", "approval_id": approval_id,
+                "tool": action.tool, "detail": action.detail,
+                "note": "re-propose via run() to execute under a fresh decision"}
+
     def run(self, task: str, brain) -> dict:
         """Run one task. Returns {status, turns, log, ...}:
         answered (answer), held (approval_id), blocked, rejected
@@ -461,7 +490,7 @@ class BrainHarness:
                     self.governor.audit.append(
                         "harness_repeat_call", actor=self.actor, tool=tool,
                         args=_render_detail(tool, args))
-                    cached = f"{_REPEAT_MARKER}\n{executed[cache_key]}"
+                    cached = f"{_REPEAT_MARKER}\n{redact_secrets(executed[cache_key])}"
                     context.append({"tool_result": cached})
                     log.append({"turn": turn, "tool": tool,
                                 "verdict": "allowed (repeat — cached)",
@@ -478,6 +507,10 @@ class BrainHarness:
                             "turns": turn, "log": log}
                 result = str(method(**args))
                 executed[cache_key] = result
+                # Finding 5 (2026-10-19): tool results flow straight into
+                # brain context. Redact secret shapes first — a file read
+                # that returns a private key must not land in the clear.
+                result = redact_secrets(result)
                 context.append({"tool_result": result})
                 log.append({"turn": turn, "tool": tool, "verdict": "allowed",
                             "result_preview": result[:120]})

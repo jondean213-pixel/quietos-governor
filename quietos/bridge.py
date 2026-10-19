@@ -15,6 +15,8 @@ files are quarantined to inbox/dead/ and audited, never retried forever.
 import json
 import os
 
+from .reply_auth import load_or_create_secret, verify_reply
+
 JON_DEVICE = "jon_device"
 
 
@@ -26,6 +28,11 @@ class BridgePump:
         os.makedirs(outbox_dir, exist_ok=True)
         os.makedirs(inbox_dir, exist_ok=True)
         os.makedirs(os.path.join(inbox_dir, "dead"), exist_ok=True)
+        # Reply-auth secret (Finding 1, 2026-10-19): the bridge root is the
+        # common parent of outbox/ and inbox/ — the same layout the phone
+        # watcher uses (~/quietos-bridge/.reply_secret).
+        bridge_root = os.path.dirname(os.path.abspath(outbox_dir))
+        self._reply_secret = load_or_create_secret(bridge_root)
 
     def pump_out(self) -> list:
         """Render queued governor notifications into outbox files."""
@@ -41,7 +48,13 @@ class BridgePump:
         return written
 
     def pump_in(self) -> list:
-        """Deliver inbox replies to the channel. Returns result strings."""
+        """Deliver inbox replies to the channel. Returns result strings.
+
+        Finding 1 (2026-10-19): every reply must carry a valid HMAC
+        signature from the phone-side watcher. An unsigned or
+        mis-signed reply is quarantined and audited as a forgery
+        attempt — it never reaches receive_reply().
+        """
         results = []
         gov = self.channel.gov
         for name in sorted(os.listdir(self.inbox)):
@@ -53,10 +66,17 @@ class BridgePump:
                     reply = json.load(f)
                 nid = reply["notification_id"]
                 verb = reply["verb"]
+                sig = reply.get("sig", "")
             except (json.JSONDecodeError, KeyError, TypeError):
                 gov.audit.append("bridge_bad_reply", file=name)
                 os.replace(path, os.path.join(self.inbox, "dead", name))
                 results.append(f"{name}: quarantined (malformed)")
+                continue
+            if not verify_reply(self._reply_secret, nid, verb, sig):
+                gov.audit.append("bridge_forgery_attempt", file=name,
+                                 notification_id=nid, verb=verb)
+                os.replace(path, os.path.join(self.inbox, "dead", name))
+                results.append(f"{name}: quarantined (bad signature)")
                 continue
             results.append(self.channel.receive_reply(nid, verb, JON_DEVICE))
             os.remove(path)

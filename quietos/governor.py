@@ -56,12 +56,54 @@ class Governor:
     _DESTRUCTIVE_HINTS = ("rm -rf", "rm -r ", "del ", "delete", "format",
                           "mkfs", "dd if=")
 
+    # Finding 2 (2026-10-19 red-team): the naive substring match above was
+    # trivially bypassed — tab separators, long-flag forms (--recursive
+    # --force), dd without if=, shred/wipe, fork bombs. _is_destructive()
+    # normalizes the command first and matches structural patterns.
+    _DESTRUCTIVE_COMMANDS = ("shred", "wipe", "srm", "mkfs", "format")
+
+    @staticmethod
+    def _normalize_command(command: str) -> str:
+        """Lowercase, collapse all whitespace runs to single spaces."""
+        import re
+        return re.sub(r"\s+", " ", command.lower()).strip()
+
+    @classmethod
+    def _is_destructive(cls, command: str) -> bool:
+        import re
+        norm = cls._normalize_command(command)
+        # Original hints still apply on the normalized form.
+        if any(h in norm for h in cls._DESTRUCTIVE_HINTS):
+            return True
+        # Secure-delete tools and friends.
+        for c in cls._DESTRUCTIVE_COMMANDS:
+            if re.search(rf"(?:^|[;|&`$\s]){c}(?:\s|$|[;|&])", norm):
+                return True
+        # rm with recursive+force in ANY flag spelling: -rf, -fr, -r -f,
+        # --recursive --force, --force --recursive, etc.
+        m = re.search(r"(?:^|[;|&`$\s])rm\s+((?:-\S+\s*)+)", norm)
+        if m:
+            flags = m.group(1).replace(" ", "")
+            if "r" in flags and "f" in flags:
+                return True
+        if "--recursive" in norm and "--force" in norm and \
+                re.search(r"(?:^|[;|&`$\s])rm(?:\s|$)", norm):
+            return True
+        # dd writing anywhere (of=...), not just the dd if= idiom.
+        if re.search(r"(?:^|[;|&`$\s])dd\s+.*\bof=", norm):
+            return True
+        # Fork bomb shapes: :(){ :|:& };: and variants.
+        if re.search(r"\(\s*\)\s*\{[^}]*\|[^}]*\}", norm):
+            return True
+        if ":(" in norm and "):" in norm:
+            return True
+        return False
+
     def evaluate(self, command: str) -> Decision:
         """Quick-start convenience: propose a raw shell command string and
         get back a Decision. Destructive-looking commands land in Tier 3
         (blocked); everything else flows through propose() honestly."""
-        lowered = command.lower()
-        if any(h in lowered for h in self._DESTRUCTIVE_HINTS):
+        if self._is_destructive(command):
             action = Action(actor="brain", kind="destructive",
                             detail=command, target=command)
         else:
@@ -76,13 +118,46 @@ class Governor:
         classify() blocks targets naming 'audit'; this closes the walk-
         around: deleting the audit's parent directory destroys the
         trail just as dead without ever naming it. That's tampering.
+
+        Finding 3 (2026-10-19 red-team): the guard only fired on
+        kind="delete", but evaluate() wraps shell strings as
+        kind="tool_call" — so `rm -rf ~/.quietos` sailed past the tamper
+        block as a Tier 2. Shell actions now get their command string
+        checked against the audit path too.
         """
         import os
-        if action.kind != "delete" or not action.target:
-            return False
         audit = os.path.normpath(os.path.expanduser(self.audit.path))
-        target = os.path.normpath(os.path.expanduser(action.target))
-        return audit == target or audit.startswith(target.rstrip(os.sep) + os.sep)
+        audit_dir = os.path.dirname(audit)
+
+        def _path_hits_audit(path: str) -> bool:
+            target = os.path.normpath(os.path.expanduser(path))
+            return (audit == target or
+                    audit.startswith(target.rstrip(os.sep) + os.sep) or
+                    target == audit_dir or
+                    audit_dir.startswith(target.rstrip(os.sep) + os.sep))
+
+        if action.kind == "delete" and action.target:
+            return _path_hits_audit(action.target)
+        if action.kind in ("tool_call", "run_shell") and action.target:
+            # Shell commands: flag only tokens naming the audit FILE itself.
+            # Naming the directory (ls, cp into it) is not tampering;
+            # destroying the directory is already caught by _is_destructive.
+            import re
+            cmd = self._normalize_command(action.target)
+            for tok in re.split(r"\s+", cmd):
+                tok = tok.strip("'\"")
+                if not tok or tok.startswith("-"):
+                    continue
+                if "/" not in tok and not tok.startswith("~") \
+                        and not tok.startswith("."):
+                    continue
+                try:
+                    target = os.path.normpath(os.path.expanduser(tok))
+                    if audit == target:
+                        return True
+                except Exception:
+                    continue
+        return False
 
     def propose(self, action: Action) -> Decision:
         if self._targets_audit_trail(action):
@@ -141,11 +216,12 @@ class Governor:
                     self._log(action, d, approval_id=dead.id)
                     return d
             self._flush_batch()
-            ap = self.approvals.hold(action)
+            ap = self.approvals.hold(action, flags=flags)
             mode, ids = self.batcher.add(ap.id)
             batched = mode != "single"
             if mode == "batch":
-                self.jon_notifications.append(("approval_batch", {"ids": ids, "count": len(ids)}))
+                self.jon_notifications.append(
+                    ("approval_batch", self._batch_payload(ids)))
             elif mode == "single":
                 self.jon_notifications.append(("approval_needed",
                                                {"id": ap.id, "detail": action.detail,
@@ -162,6 +238,28 @@ class Governor:
         self.jon_notifications.append(("blocked",
                                        {"detail": action.detail, "flags": flags}))
         return d
+
+    def _batch_payload(self, ids: list) -> dict:
+        """Build an approval_batch payload with per-item detail.
+
+        Finding 4 (2026-10-19): the old payload was {ids, count} — a
+        black box. Now each item carries its detail text and flags, so
+        Jon can see WHAT is waiting, not just how many. Items are
+        sorted with flagged (riskiest) first.
+        """
+        items = []
+        for aid in ids:
+            ap = self.approvals.lookup(aid)
+            if ap is None:
+                continue
+            items.append({
+                "id": aid,
+                "detail": ap.action.detail if ap.action else "",
+                "flags": ap.flags,
+            })
+        # Flagged items first — the ones Jon most needs to see.
+        items.sort(key=lambda i: (0 if i["flags"] else 1, i["id"]))
+        return {"ids": ids, "count": len(ids), "items": items}
 
     def _log(self, action: Action, decision: Decision, **extra):
         self.audit.append(
@@ -221,7 +319,7 @@ class Governor:
                               flushed=len(ids), dropped=dropped)
         if live:
             self.jon_notifications.append(
-                ("approval_batch", {"ids": live, "count": len(live)}))
+                ("approval_batch", self._batch_payload(live)))
 
     def sweep(self):
         for ap in self.approvals.sweep_expired():

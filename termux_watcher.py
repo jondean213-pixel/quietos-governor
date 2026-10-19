@@ -11,8 +11,11 @@ Approve / Deny (or Unpause) buttons write a reply JSON into inbox — that
 tap is the "jon_device" source the governor trusts. Read-only otherwise:
 this script never answers anything itself.
 """
+import hashlib
+import hmac
 import json
 import os
+import secrets
 import subprocess
 import sys
 import time
@@ -22,11 +25,39 @@ OUTBOX = os.path.join(BRIDGE, "outbox")
 INBOX = os.path.join(BRIDGE, "inbox")
 
 
+def load_or_create_secret(bridge_root: str = None) -> bytes:
+    """Device-local reply secret (Finding 1, 2026-10-19).
+
+    Generated once, 0600. The governor's pump_in() verifies every reply
+    against this secret — an unsigned reply file is quarantined, never
+    processed. Never expose this file to the agent runner.
+    """
+    root = bridge_root or os.path.dirname(INBOX)
+    path = os.path.join(root, ".reply_secret")
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            return f.read()
+    secret = secrets.token_bytes(32)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        os.write(fd, secret)
+    finally:
+        os.close(fd)
+    return secret
+
+
+def sign_reply(secret: bytes, notification_id: str, verb: str) -> str:
+    msg = f"{notification_id}:{verb}".encode("utf-8")
+    return hmac.new(secret, msg, hashlib.sha256).hexdigest()
+
+
 def write_reply(notification_id: str, verb: str):
     os.makedirs(INBOX, exist_ok=True)
+    secret = load_or_create_secret()
     path = os.path.join(INBOX, f"{notification_id}-{verb}.json")
     with open(path, "w") as f:
-        json.dump({"notification_id": notification_id, "verb": verb}, f)
+        json.dump({"notification_id": notification_id, "verb": verb,
+                   "sig": sign_reply(secret, notification_id, verb)}, f)
 
 
 def reply_cmd(notification_id: str, verb: str) -> str:

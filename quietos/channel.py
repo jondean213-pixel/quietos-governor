@@ -72,9 +72,21 @@ class JonChannel:
                                 approval_id=payload["id"], expires_at=expires)
         if kind == "approval_batch":
             count = payload.get("count", len(payload.get("ids", [])))
-            return Notification(kind, "QuietOS: approvals waiting",
-                                f"{count} Tier 2 requests are held. "
-                                "Tap to review each one.",
+            body = f"{count} Tier 2 requests are held. Tap to review each one."
+            # Finding 4 (2026-10-19): surface WHAT is waiting, not just
+            # how many — flagged items first so a buried risky ask can't
+            # hide behind a wall of benign ones.
+            items = payload.get("items", [])
+            if items:
+                lines = []
+                for it in items[:5]:  # top 5; the rest are in the review queue
+                    flag_str = f" [{','.join(it['flags'])}]" if it["flags"] else ""
+                    detail = it["detail"][:80]
+                    lines.append(f"• {detail}{flag_str}")
+                body += "\n" + "\n".join(lines)
+                if len(items) > 5:
+                    body += f"\n…and {len(items) - 5} more."
+            return Notification(kind, "QuietOS: approvals waiting", body,
                                 approval_ids=payload.get("ids", []))
         if kind == "blocked":
             return Notification(kind, "QuietOS blocked an action",
