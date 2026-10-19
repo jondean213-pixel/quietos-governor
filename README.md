@@ -35,9 +35,9 @@ Gates are **deterministic code** — allowlists, exact-match flags, pattern chec
 We don't ask you to trust us. We attack our own governor and publish the results.
 
 **Red-team record (Oct 14–15, 2026):**
-- 18 adversarial attacks tested
+- 26 adversarial attacks tested
 - 15 blocked outright
-- 3 real holes found — **all patched and verified same session**
+- 11 real holes found — **all patched and verified same session**
 - 3 control tests passed (legitimate work unbroken)
 - Zero bypasses standing
 
