@@ -109,7 +109,7 @@ _DAY_MONTH_RE = re.compile(
 
 
 def _num_value(raw: str) -> str:
-    """Normalize a numeric token: '$1,200.00' / '50%' / '50 dollars' -> '1200'/'50'."""
+    """Normalize a numeric token such as '$1,200.00', '50%' or '50 dollars' into '1200'/'50'."""
     core = re.sub(r"[^\d.]", "", raw)
     try:
         val = float(core)
