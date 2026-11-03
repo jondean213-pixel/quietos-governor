@@ -1,5 +1,7 @@
 # QuietOS — The Governor
 
+[![HOL Guard](https://img.shields.io/endpoint?url=https%3A%2F%2Fhol.org%2Fapi%2Fregistry%2Fbadges%2Fplugin%3Fslug%3Djondean213-pixel%252Fquietos-governor%26metric%3Drelease)](https://hol.org/registry/plugins/jondean213-pixel%2Fquietos-governor?utm_source=hol_marketplace&utm_medium=plugins_badge&utm_campaign=plugins&utm_content=jondean213-pixel%2Fquietos-governor&ref=plugin-author-725cfccb)
+
 **The brain proposes, QuietOS disposes.**
 
 QuietOS is a brain-agnostic runtime governor for AI agents. It sits between any AI model and its tools, enforcing safety gates on every action — regardless of which model is thinking.
